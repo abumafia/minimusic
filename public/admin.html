@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Post Joylash</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-indigo-700">Post Joylash</h1>
+            <a href="/" class="text-indigo-600 hover:underline mt-2 inline-block">Postlarni ko'rish</a>
+        </header>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <form id="post-form" class="space-y-4" enctype="multipart/form-data">
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Sarlavha</label>
+                    <input type="text" id="title" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="content" class="block text-sm font-medium text-gray-700 mb-1">Mazmuni</label>
+                    <textarea id="content" rows="4" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"></textarea>
+                </div>
+                <div>
+                    <label for="media" class="block text-sm font-medium text-gray-700 mb-1">Rasm/Video</label>
+                    <input type="file" id="media" accept="image/*,video/*" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <p class="text-xs text-gray-500 mt-1">Qo'llab-quvvatlanadigan formatlar: JPEG, PNG, GIF, MP4, MOV, AVI</p>
+                </div>
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition w-full">Post Joylash</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Formni yuborish
+        document.getElementById('post-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            const mediaFile = document.getElementById('media').files[0];
+            
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('content', content);
+            if (mediaFile) formData.append('media', mediaFile);
+            
+            try {
+                const response = await fetch('/api/posts', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    alert('Post muvaffaqiyatli joylandi!');
+                    document.getElementById('post-form').reset();
+                } else {
+                    throw new Error('Post joylashda xatolik yuz berdi');
+                }
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+    </script>
+</body>
+</html>

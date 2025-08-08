@@ -1,161 +1,198 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const path = require('path');
-const sharp = require('sharp');
-const fs = require('fs');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const cors = require('cors');
+
 const app = express();
 
 // MongoDB ulanish
-mongoose.connect('mongodb+srv://refbot:refbot00@gamepaymentbot.ffcsj5v.mongodb.net/?retryWrites=true&w=majority', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/music-platform', {
+  serverSelectionTimeoutMS: 5000
 })
 .then(() => console.log('MongoDBga ulandi'))
 .catch(err => console.error('MongoDB ulanish xatosi:', err));
 
-// Fayl yuklash konfiguratsiyasi
+// Model
+const songSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  artist: { type: String, required: true },
+  audioUrl: { type: String, required: true },
+  coverUrl: { type: String },
+  likes: { type: Number, default: 0 },
+  comments: [{
+    text: { type: String, required: true },
+    author: { type: String, default: 'Anonim' },
+    likes: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Song = mongoose.model('Song', songSchema);
+
+// Fayl yuklash
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const uploadDir = 'public/uploads';
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
+  destination: (req, file, cb) => {
+    const dir = 'public/uploads';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
 });
 
 const upload = multer({
-    storage: storage,
-    fileFilter: (req, file, cb) => {
-        const filetypes = /jpeg|jpg|png|gif|mp4|mov|avi/;
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = filetypes.test(file.mimetype);
-        
-        if (extname && mimetype) {
-            return cb(null, true);
-        } else {
-            cb(new Error('Faqat rasm (JPEG, JPG, PNG, GIF) va video (MP4, MOV, AVI) fayllarini yuklash mumkin'));
-        }
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'audio') {
+      const audioTypes = /mp3|wav|ogg|mpeg/;
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (audioTypes.test(ext)) return cb(null, true);
+      return cb(new Error('Faqat audio fayllar (MP3, WAV, OGG)'));
+    } else if (file.fieldname === 'cover') {
+      const imageTypes = /jpeg|jpg|png|gif/;
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (imageTypes.test(ext)) return cb(null, true);
+      return cb(new Error('Faqat rasm fayllar (JPEG, PNG, GIF)'));
     }
+    cb(new Error('Noto\'g\'ri fayl turi'));
+  },
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB
 });
-
-// Post modeli
-const PostSchema = new mongoose.Schema({
-    title: String,
-    content: String,
-    media: {
-        type: String,
-        default: null
-    },
-    mediaType: {
-        type: String,
-        default: null
-    },
-    likes: { type: Number, default: 0 },
-    comments: [{
-        text: String,
-        likes: { type: Number, default: 0 },
-        createdAt: { type: Date, default: Date.now }
-    }],
-    createdAt: { type: Date, default: Date.now }
-});
-const Post = mongoose.model('Post', PostSchema);
 
 // Middleware
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
 
 // API Routes
-// Barcha postlarni olish
-app.get('/api/posts', async (req, res) => {
-    try {
-        const posts = await Post.find().sort({ createdAt: -1 });
-        res.json(posts);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+// Qo'shiq yuklash
+app.post('/api/songs', upload.fields([
+  { name: 'audio', maxCount: 1 },
+  { name: 'cover', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { title, artist } = req.body;
+    if (!title || !artist) throw new Error('Sarlavha va ijrochi majburiy');
+
+    const song = new Song({
+      title,
+      artist,
+      audioUrl: '/uploads/' + req.files.audio[0].filename,
+      coverUrl: req.files.cover ? '/uploads/' + req.files.cover[0].filename : null
+    });
+
+    await song.save();
+    res.json({ success: true, song });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
-// Yangi post qo'shish
-app.post('/api/posts', upload.single('media'), async (req, res) => {
-    try {
-        const { title, content } = req.body;
-        let mediaPath = null;
-        let mediaType = null;
-
-        if (req.file) {
-            mediaPath = '/uploads/' + req.file.filename;
-            
-            const ext = path.extname(req.file.originalname).toLowerCase();
-            if (['.jpeg', '.jpg', '.png', '.gif'].includes(ext)) {
-                mediaType = 'image';
-                
-                await sharp(req.file.path)
-                    .resize(800, 800, { fit: 'inside' })
-                    .toFormat('jpeg', { quality: 80 })
-                    .toFile(req.file.path + '.optimized.jpg');
-                
-                fs.unlinkSync(req.file.path);
-                fs.renameSync(req.file.path + '.optimized.jpg', req.file.path);
-            } else if (['.mp4', '.mov', '.avi'].includes(ext)) {
-                mediaType = 'video';
-            }
-        }
-
-        const post = new Post({ title, content, media: mediaPath, mediaType });
-        await post.save();
-        res.json(post);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+// Barcha qo'shiqlar
+app.get('/api/songs', async (req, res) => {
+  try {
+    const songs = await Song.find().sort({ createdAt: -1 });
+    res.json({ success: true, songs });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// Postga like bosish
-app.post('/api/posts/:id/like', async (req, res) => {
-    try {
-        const post = await Post.findById(req.params.id);
-        post.likes += 1;
-        await post.save();
-        res.json(post);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+// Qo'shiqni ID bo'yicha olish
+app.get('/api/songs/:id', async (req, res) => {
+  try {
+    const song = await Song.findById(req.params.id);
+    if (!song) {
+      return res.status(404).json({ success: false, error: 'Qo\'shiq topilmadi' });
     }
+    res.json({ success: true, song });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// Comment qo'shish
-app.post('/api/posts/:id/comments', async (req, res) => {
-    try {
-        const { text } = req.body;
-        const post = await Post.findById(req.params.id);
-        post.comments.push({ text });
-        await post.save();
-        res.json(post);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+// Qidiruv
+app.get('/api/search', async (req, res) => {
+  try {
+    const query = req.query.q;
+    if (!query) throw new Error('Qidiruv so\'rovi bo\'sh');
+
+    const songs = await Song.find({
+      $or: [
+        { title: { $regex: query, $options: 'i' } },
+        { artist: { $regex: query, $options: 'i' } }
+      ]
+    });
+    res.json({ success: true, results: songs });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
-// Commentga like bosish
-app.post('/api/posts/:postId/comments/:commentId/like', async (req, res) => {
-    try {
-        const post = await Post.findById(req.params.postId);
-        const comment = post.comments.id(req.params.commentId);
-        comment.likes += 1;
-        await post.save();
-        res.json(post);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+// Like qo'shish
+app.post('/api/songs/:id/like', async (req, res) => {
+  try {
+    const song = await Song.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { likes: 1 } },
+      { new: true }
+    );
+    res.json({ success: true, song });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
-// Server ishga tushirish
+// Comment qo'shish (avvalgi kodga qo'shing)
+app.post('/api/songs/:id/comments', async (req, res) => {
+  try {
+    const { text, author } = req.body;
+    if (!text) throw new Error('Comment matni bo\'sh');
+
+    const song = await Song.findByIdAndUpdate(
+      req.params.id,
+      { $push: { comments: { text, author } } },
+      { new: true }
+    );
+    res.json({ success: true, song });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Commentga like qo'shish
+app.post('/api/songs/:songId/comments/:commentId/like', async (req, res) => {
+  try {
+    const song = await Song.findById(req.params.songId);
+    const comment = song.comments.id(req.params.commentId);
+    comment.likes += 1;
+    await song.save();
+    res.json({ success: true, song });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// server.js faylida
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  
+  // Agar API so'rovi bo'lsa, JSON qaytaramiz
+  if (req.originalUrl.startsWith('/api')) {
+    return res.status(500).json({ 
+      success: false, 
+      error: err.message || 'Server xatosi' 
+    });
+  }
+  
+  // Oddik HTML so'rovlar uchun
+  res.status(500).send('<h1>Server xatosi</h1>');
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server ${PORT}-portda ishga tushdi`);
-});
+app.listen(PORT, () => console.log(`Server ${PORT}-portda ishga tushdi`));

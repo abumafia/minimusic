@@ -282,7 +282,7 @@
       if (coverFile) formData.append('cover', coverFile);
       
       try {
-        const response = await fetch('/api/songs', {
+        const response = await fetch('https://minimusic-k2pv.onrender.com/api/songs', {
           method: 'POST',
           body: formData
         });

@@ -1,68 +1,333 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Post Joylash</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100">
-    <div class="container mx-auto px-4 py-8 max-w-2xl">
-        <header class="mb-8">
-            <h1 class="text-3xl font-bold text-indigo-700">Post Joylash</h1>
-            <a href="/" class="text-indigo-600 hover:underline mt-2 inline-block">Postlarni ko'rish</a>
-        </header>
-
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <form id="post-form" class="space-y-4" enctype="multipart/form-data">
-                <div>
-                    <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Sarlavha</label>
-                    <input type="text" id="title" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label for="content" class="block text-sm font-medium text-gray-700 mb-1">Mazmuni</label>
-                    <textarea id="content" rows="4" required class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"></textarea>
-                </div>
-                <div>
-                    <label for="media" class="block text-sm font-medium text-gray-700 mb-1">Rasm/Video</label>
-                    <input type="file" id="media" accept="image/*,video/*" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                    <p class="text-xs text-gray-500 mt-1">Qo'llab-quvvatlanadigan formatlar: JPEG, PNG, GIF, MP4, MOV, AVI</p>
-                </div>
-                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition w-full">Post Joylash</button>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        // Formni yuborish
-        document.getElementById('post-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const title = document.getElementById('title').value;
-            const content = document.getElementById('content').value;
-            const mediaFile = document.getElementById('media').files[0];
-            
-            const formData = new FormData();
-            formData.append('title', title);
-            formData.append('content', content);
-            if (mediaFile) formData.append('media', mediaFile);
-            
-            try {
-                const response = await fetch('/api/posts', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    alert('Post muvaffaqiyatli joylandi!');
-                    document.getElementById('post-form').reset();
-                } else {
-                    throw new Error('Post joylashda xatolik yuz berdi');
-                }
-            } catch (err) {
-                alert(err.message);
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Harmony | Admin Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            },
+            dark: {
+              900: '#0f172a',
+              800: '#1e293b',
+              700: '#334155',
             }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Poppins', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+    }
+    .file-upload {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+    .file-upload:hover {
+      transform: translateY(-2px);
+    }
+    .file-upload input[type="file"] {
+      position: absolute;
+      top: 0;
+      right: 0;
+      min-width: 100%;
+      min-height: 100%;
+      font-size: 100px;
+      text-align: right;
+      filter: alpha(opacity=0);
+      opacity: 0;
+      outline: none;
+      background: white;
+      cursor: inherit;
+      display: block;
+    }
+    .file-preview {
+      transition: all 0.3s;
+    }
+    .file-preview:hover {
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+  <!-- Navigation -->
+  <nav class="bg-white shadow-sm">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fas fa-music text-primary-600 text-2xl"></i>
+        <span class="text-xl font-bold text-primary-700">Harmony Admin</span>
+      </div>
+      <a href="/" class="text-primary-600 hover:text-primary-800 font-medium flex items-center">
+        <i class="fas fa-home mr-2"></i>
+        Asosiy sahifa
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-8">
+    <div class="max-w-3xl mx-auto">
+      <!-- Header -->
+      <div class="mb-8 text-center">
+        <h1 class="text-3xl font-bold text-dark-900 mb-2">Yangi Qo'shiq Yuklash</h1>
+        <p class="text-gray-600">Platformangizga yangi musiqa qo'shing</p>
+      </div>
+
+      <!-- Upload Form -->
+      <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <form id="upload-form" class="p-6 space-y-6" enctype="multipart/form-data">
+          <!-- Song Info -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Title -->
+            <div>
+              <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Qo'shiq nomi</label>
+              <div class="relative">
+                <input type="text" id="title" required 
+                  class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition">
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <i class="fas fa-heading text-gray-400"></i>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Artist -->
+            <div>
+              <label for="artist" class="block text-sm font-medium text-gray-700 mb-1">Ijrochi</label>
+              <div class="relative">
+                <input type="text" id="artist" required 
+                  class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition">
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <i class="fas fa-user text-gray-400"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cover Upload -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cover rasmi (ixtiyoriy)</label>
+            <div class="file-upload mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl">
+              <div class="space-y-1 text-center">
+                <div class="flex text-sm text-gray-600 justify-center">
+                  <label class="relative cursor-pointer rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none">
+                    <span>Rasm tanlang</span>
+                    <input id="cover" name="cover" type="file" accept="image/*" class="sr-only">
+                  </label>
+                </div>
+                <p class="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+              </div>
+            </div>
+            <!-- Preview -->
+            <div id="cover-preview" class="mt-2 hidden">
+              <div class="file-preview bg-gray-100 rounded-lg p-2 inline-block">
+                <img id="cover-preview-image" class="h-32 w-32 object-cover rounded-md">
+                <button type="button" onclick="clearCover()" class="absolute -mt-3 -mr-3 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-sm hover:bg-red-600">
+                  <i class="fas fa-times text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Audio Upload -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Audio fayl</label>
+            <div class="file-upload mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl">
+              <div class="space-y-1 text-center">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <div class="flex text-sm text-gray-600 justify-center">
+                  <label class="relative cursor-pointer rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none">
+                    <span>Audio fayl tanlang</span>
+                    <input id="audio" name="audio" type="file" required accept="audio/*" class="sr-only">
+                  </label>
+                </div>
+                <p class="text-xs text-gray-500">MP3, WAV, OGG up to 25MB</p>
+              </div>
+            </div>
+            <!-- Preview -->
+            <div id="audio-preview" class="mt-2 hidden">
+              <div class="file-preview bg-gray-100 rounded-lg p-3 inline-flex items-center">
+                <i class="fas fa-music text-primary-600 mr-3"></i>
+                <span id="audio-filename" class="font-medium"></span>
+                <button type="button" onclick="clearAudio()" class="ml-3 text-red-500 hover:text-red-700">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="pt-4">
+            <button type="submit" id="submit-btn" class="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-bold py-4 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center">
+              <i class="fas fa-cloud-upload-alt mr-3"></i>
+              <span>Qo'shiqni Yuklash</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- Success Modal -->
+  <div id="success-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center">
+      <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+        <i class="fas fa-check text-green-600 text-xl"></i>
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Muvaffaqiyatli yuklandi!</h3>
+      <p class="text-sm text-gray-500 mb-4">Qo'shiq platformaga qo'shildi.</p>
+      <button type="button" onclick="document.getElementById('success-modal').classList.add('hidden')" class="w-full bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition">
+        OK
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Cover image preview
+    document.getElementById('cover').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          document.getElementById('cover-preview-image').src = event.target.result;
+          document.getElementById('cover-preview').classList.remove('hidden');
+        }
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Audio file preview
+    document.getElementById('audio').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        document.getElementById('audio-filename').textContent = file.name;
+        document.getElementById('audio-preview').classList.remove('hidden');
+      }
+    });
+
+    // Clear cover
+    function clearCover() {
+      document.getElementById('cover').value = '';
+      document.getElementById('cover-preview').classList.add('hidden');
+    }
+
+    // Clear audio
+    function clearAudio() {
+      document.getElementById('audio').value = '';
+      document.getElementById('audio-preview').classList.add('hidden');
+    }
+
+    // Form submission
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const submitBtn = document.getElementById('submit-btn');
+      const originalBtnContent = submitBtn.innerHTML;
+      
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+        Yuklanmoqda...
+      `;
+      
+      const formData = new FormData();
+      formData.append('title', document.getElementById('title').value);
+      formData.append('artist', document.getElementById('artist').value);
+      
+      const audioFile = document.getElementById('audio').files[0];
+      const coverFile = document.getElementById('cover').files[0];
+      
+      if (!audioFile) {
+        showError('Audio fayl majburiy!');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnContent;
+        return;
+      }
+      
+      formData.append('audio', audioFile);
+      if (coverFile) formData.append('cover', coverFile);
+      
+      try {
+        const response = await fetch('/api/songs', {
+          method: 'POST',
+          body: formData
         });
-    </script>
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Yuklashda xato');
+        }
+        
+        // Show success modal
+        document.getElementById('success-modal').classList.remove('hidden');
+        document.getElementById('upload-form').reset();
+        document.getElementById('cover-preview').classList.add('hidden');
+        document.getElementById('audio-preview').classList.add('hidden');
+        
+      } catch (err) {
+        console.error('Xato:', err);
+        showError('Xato: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnContent;
+      }
+    });
+
+    // Show error message
+    function showError(message) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex items-start';
+      errorDiv.innerHTML = `
+        <div class="flex-shrink-0">
+          <i class="fas fa-exclamation-circle mr-2 mt-1"></i>
+        </div>
+        <div>
+          <span class="block sm:inline">${message}</span>
+        </div>
+        <div class="ml-4">
+          <button onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `;
+      document.body.appendChild(errorDiv);
+      setTimeout(() => errorDiv.remove(), 5000);
+    }
+  </script>
 </body>
 </html>
